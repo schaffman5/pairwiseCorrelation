@@ -1,0 +1,16 @@
+Package: pairwiseCorrelation
+Type: Package
+Title: Pairwise matrix row correlation
+Version: 0.9.0
+Authors@R: 
+    person("Michael", "Schaffer", , "mschaff@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0003-1381-0275"))
+Description: Fast pairwise correlation calculations for each row in a matrix to return a dist object containing the Pearson correlations.
+License: GPL-3
+Encoding: UTF-8
+Date: 2006-02-22
+LazyData: true
+RoxygenNote: 7.3.2
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
