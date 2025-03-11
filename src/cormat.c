@@ -1,61 +1,10 @@
-/* cormat.c: Pairwise Matrix Row Correlation
-
-This function will take a matrix from R and do all pairwise
-correlation calculations for each row in the matrix and
-return a vector containing the Pearson correlations.
-
-The values returned should be equivalent to running
-cor(x,y,method="pearson",use="pair") where x and y are the
-data from two rows being compared.
-
-In addition, if the fraction of missing pair data between
-the two matrix rows is greater than the missingThresh parameter,
-the correlation is not calculated and an NA value is returned.
-
-2006/02/22 (Mike Schaffer)
-
-To compile: from the command line, run:
-	R CMD SHLIB cormat.c
-
-
-To use: from an R script:
-	source("cormat.R")
-	cormat(testset, diag = FALSE, upper = FALSE, missingThresh=0.50)
-
-
-Inputs:
-	x: a numeric matrix where rows are variables to compare (e.g.
-		genes) and columns are conditions.
-	diag: a boolean whether the diagonal elements should be
-		calculated.
-	upper: whether the upper part of the matrix should be
-		shown.
-	missingThresh: fraction of paired data that is required for
-		the correlation to be calculated.
-
-
-Output:
-	An R vector containing the Pearson correlation for each
-	row comparison.  It is left up to the user to determine which vector
-	elements correspond to a given pair.  A distance object was previously
-	returned, but for very large matrices, R was running out of memory.
-
-
-Example:
-	cormat(rbind(c(1,2,3,4),c(1,2,3,4),c(1,2,3,4)) )
-
-	# Test this function
-	cormat(rbind(c(1,1,3,4,NA),c(1,2,3,4,5)) )
-	# Compare to R's builtin cor function
-	cor(c(1,1,3,4,NA),c(1,2,3,4,5),use="pair")
-*/
-
 #include <R.h>
 #include <Rinternals.h>
 #include <Rdefines.h>
 #include <Rmath.h>
 #include <R_ext/Utils.h>
 #include <math.h>
+#include <omp.h>
 
 
 // Pearson function
@@ -94,6 +43,30 @@ double pearsonCor (double *x, int nr, int nc, int i1, int i2, double missingThre
 }
 
 
+void update_progress_bar(int current_step, int total_steps, int bar_width) {
+  float progress = (float)current_step / total_steps;
+  int pos = (int)(bar_width * progress);
+
+  // start the line with carriage return to overwrite previous output
+  Rprintf("\r[");
+
+  // fill in the progress
+  for (int i = 0; i < bar_width; ++i) {
+    if (i < pos) Rprintf("=");
+    else if (i == pos) Rprintf(">");
+    else Rprintf(" ");
+  }
+
+  // end the progress bar with the percentage
+  Rprintf("] %d%%", (int)(progress * 100));
+
+  // flush the output buffer to ensure the progress bar is displayed immediately
+  //fflush(stdout);
+
+  R_FlushConsole();
+}
+
+
 // Notes:
 // Code to run Pearson on all pairs of genes on an incoming matrix where
 // rows are genes and columns are conditions.  The matrix is dealt with as
@@ -109,30 +82,34 @@ double pearsonCor (double *x, int nr, int nc, int i1, int i2, double missingThre
 
 void Rcormat(double *x, int *nr, int *nc, double *d, int *diag, double *missingThresh)
 {
-	int dc, i, j, ij;
-	int increment = 10;  // Give user feedback on the progress
-					 // in increments of n rows.
 
-	if(*nr > increment) {
-		Rprintf("Processing row...\n");
-	}
+  int j;
+  int index;
 
-	dc = (*diag) ? 0 : 1; /* diag=1:  we do the diagonal */
-	ij = 0;
+  int dc = (*diag) ? 0 : 1; // when diag==1, include the diagonal by setting dc to zero
+  int total = *nr + 1;
+	int progress_threshold = 2; // update progress every 2%
+
 	for(j = 0 ; j <= *nr ; j++) {
-
 		R_CheckUserInterrupt();  // Check if R user wants to cancel
 
-		if( (*nr > increment) && (( (j+1) % increment) == 0) ) {
-			Rprintf("[%d] ",(j+1));
+		// calculate percent complete
+		int percent_complete = (int)(((double)j / total) * 100);
+
+		// update progress display every progress_threshold percent
+		if (percent_complete % progress_threshold == 0 && j % progress_threshold == 0) {
+		  update_progress_bar(j, total, 50);
 		}
 
-		for(i = j+dc ; i < *nr ; i++) {
-			d[ij++] = pearsonCor(x, *nr, *nc, i, j, *missingThresh);
+    #pragma omp parallel for
+		for(int i = j+dc ; i < *nr ; i++) {
+		  // determine the index for the upper right triangle of the
+		  // correlation matrix (dc==0 indicates if the diagonal is included)
+		  index = (int)(j * (*nr - dc) + i - j * (j + 1) / 2) - dc;
+		  d[index] = pearsonCor(x, *nr, *nc, i, j, *missingThresh);
 		}
 	}
 
-	if(*nr > increment) {
-		Rprintf("\nProcessing complete!\n");
-	}
+	update_progress_bar(total, total, 50);
+	Rprintf("\nComplete!\n");
 }

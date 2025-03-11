@@ -1,0 +1,42 @@
+# Detect the OS type
+UNAME_S := $(shell uname -s)
+
+# Default flags
+CFLAGS = -O2 -Wall
+CXXFLAGS = -O2 -Wall
+
+# Set compilers
+CC = /usr/bin/clang
+CXX = /usr/bin/clang++
+LDFLAGS =
+PKG_LIBS =
+
+# Conditional logic based on OS
+ifeq ($(UNAME_S), Darwin)
+    # macOS specific settings
+    CC = gcc-14
+    CXX = g++-14
+    CPPFLAGS += -I/usr/local/opt/llvm/include -I/usr/local/opt/libomp/include
+    CPPFLAGS += -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/libomp/include
+    LDFLAGS += -L/usr/local/opt/llvm/lib -L/usr/local/opt/libomp/lib
+    LDFLAGS += -L/opt/homebrew/opt/llvm/lib -L/opt/homebrew/opt/libomp/lib
+    PKG_CFLAGS = -fopenmp
+    PKG_LIBS = -fopenmp -lomp
+
+else ifeq ($(UNAME_S), Linux)
+    # Linux specific settings
+    CC = gcc
+    CXX = g++
+    CPPFLAGS = -I/usr/local/include
+    LDFLAGS += -L/usr/local/lib
+    PKG_CFLAGS = -fopenmp
+    PKG_LIBS = -fopenmp -lomp
+endif
+
+# Debugging output - to verify configuration
+$(info Using CC=$(CC))
+$(info Using CXX=$(CXX))
+$(info Using PKG_CFLAGS=$(PKG_CFLAGS))
+$(info Using PKG_LIBS=$(PKG_LIBS))
+$(info Using CPPFLAGS=$(CPPFLAGS))
+$(info Using LDFLAGS=$(LDFLAGS))

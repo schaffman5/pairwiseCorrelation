@@ -19,6 +19,20 @@ Make sure you have the following prerequisites installed:
 - Development tools such as `gcc` for compiling C code (for Mac/Linux)
 - `devtools` package for R
 
+#### Linux
+- Install libomp (e.g. `yum install libomp`, `dnf install libomp`, etc)
+
+
+#### macOS
+- Install llvm and libomp (`brew install llvm libomp`)
+- You may also need to modify ~/.R/Makevars to include the following to override Apple's C compiler:
+
+```
+CC=gcc-14
+CXX=c++-14
+```
+
+
 ### Installing from GitHub
 
 You can install the development version of this package directly from GitHub using the `devtools` package.
